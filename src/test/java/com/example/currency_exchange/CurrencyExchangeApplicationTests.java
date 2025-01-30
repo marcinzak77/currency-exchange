@@ -35,7 +35,7 @@ import static org.mockito.internal.verification.VerificationModeFactory.times;
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 @EnableCaching
-class CurrencyEnumExchangeApplicationTests {
+class CurrencyExchangeApplicationTests {
     private static final String NBP_USD_RATE_URL = "http://api.nbp.pl/api/exchangerates/rates/A/USD";
     private static final BigDecimal INITIAL_BALANCE = BigDecimal.valueOf(1000);
     private static final BigDecimal EXCHANGE_RATE = BigDecimal.valueOf(4.0);

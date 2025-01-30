@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.client.RestClientException;
 
 import java.util.Collections;
 import java.util.List;
@@ -31,15 +30,6 @@ public class GlobalExceptionHandler {
                 .message("Insufficient balance")
                 .details(Collections.singletonList(ex.getMessage()));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
-    }
-
-    @ExceptionHandler({RestClientException.class})
-    public ResponseEntity<ErrorResponse> handleExternalService(RestClientException ex) {
-        var error = new ErrorResponse()
-                .code("EXTERNAL_SERVICE_ERROR")
-                .message("Unable to fetch exchange rate")
-                .details(Collections.singletonList("External service is unavailable"));
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
     }
 
     @ExceptionHandler(ServiceUnavailableHttpException.class)
