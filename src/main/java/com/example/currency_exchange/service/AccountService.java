@@ -20,17 +20,17 @@ public class AccountService {
 
     @Transactional
     public AccountResponse createAccount(CreateAccountRequest request) {
-        Account account = new Account(
+        var account = new Account(
                 request.getFirstName(),
                 request.getLastName(),
                 request.getInitialBalance()
         );
-        Account savedAccount = accountRepository.save(account);
+        var savedAccount = accountRepository.save(account);
         return accountMapper.toResponse(savedAccount);
     }
 
     public AccountResponse getAccount(UUID accountId) {
-        Account account = accountRepository.findById(accountId)
+        var account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
         return accountMapper.toResponse(account);
     }

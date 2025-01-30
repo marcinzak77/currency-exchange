@@ -1,5 +1,6 @@
 package com.example.currency_exchange.service;
 
+import com.example.currency_exchange.exceptions.ResourceNotFoundException;
 import com.example.currency_exchange.mapper.AccountMapper;
 import com.example.currency_exchange.model.Account;
 import com.example.currency_exchange.model.CurrencyEnum;
@@ -17,9 +18,13 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class ExchangeServiceTest {
+    private static final BigDecimal INITIAL_PLN_BALANCE = BigDecimal.valueOf(1000);
+    private static final BigDecimal INITIAL_USD_BALANCE = BigDecimal.valueOf(50);
+    private static final BigDecimal EXCHANGE_RATE = BigDecimal.valueOf(4);
 
     @InjectMocks
     private ExchangeService sut;
@@ -31,88 +36,110 @@ class ExchangeServiceTest {
     @Mock
     private AccountBalanceValidator balanceValidator;
     @Mock
-    private AccountMapper accountMapper;
-
+    AccountMapper accountMapper;
     @Captor
     private ArgumentCaptor<Account> accountCaptor;
 
+    private UUID accountId;
+
     @BeforeEach
-    void setUp() {
+    void setUp() throws ServiceUnavailableException {
         MockitoAnnotations.openMocks(this);
-        Mockito.reset(accountRepository, exchangeRateService, balanceValidator);
+        accountId = UUID.randomUUID();
+        setupCommonMocks();
     }
 
     @Test
     void shouldThrowExceptionWhenAccountNotFound() {
-        var accountId = UUID.randomUUID();
-        var request = prepareRequest(BigDecimal.TEN, CurrencyEnum.PLN);
+        // given
+        var request = prepareExchangeRequest(BigDecimal.TEN, CurrencyEnum.PLN);
         when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> sut.exchangeCurrency(accountId, request));
-        verifyNoInteractions(accountMapper, exchangeRateService);
+        // when
+        var exception = assertThrows(
+                ResourceNotFoundException.class,
+                () -> sut.exchangeCurrency(accountId, request)
+        );
+
+        // then
+        assertEquals("Account not found", exception.getMessage());
+        verify(accountRepository).findById(accountId);
+        verifyNoMoreInteractions(accountRepository, exchangeRateService, balanceValidator, accountMapper);
     }
 
     @Test
-    void shouldPerformExchangeFromPLNtoUSD() throws ServiceUnavailableException {
-        var accountId = UUID.randomUUID();
+    void shouldExchangeFromPLNtoUSD() throws ServiceUnavailableException {
+        // given
         var amount = BigDecimal.valueOf(100);
-        var account = prepareAccount(accountId);
-        var request = prepareRequest(amount, CurrencyEnum.PLN);
+        var request = prepareExchangeRequest(amount, CurrencyEnum.PLN);
 
-        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
-        when(exchangeRateService.getCurrentRate(CurrencyEnum.USD)).thenReturn(BigDecimal.valueOf(4));
-
+        // when
         sut.exchangeCurrency(accountId, request);
 
-        verify(balanceValidator).validateBalance(account, amount, CurrencyEnum.PLN);
-        verify(accountRepository).findById(accountId);
-        verify(exchangeRateService).getCurrentRate(CurrencyEnum.USD);
-        verify(accountRepository).save(accountCaptor.capture());
-        var capturedAccount = accountCaptor.getValue();
-        // AccountMapper is intentionally not verified
-        assertEquals(BigDecimal.valueOf(900).setScale(2, RoundingMode.HALF_UP), capturedAccount.getPlnBalance().setScale(2, RoundingMode.HALF_UP));
-        assertEquals(BigDecimal.valueOf(75).setScale(2, RoundingMode.HALF_UP), capturedAccount.getUsdBalance().setScale(2, RoundingMode.HALF_UP));
-        verifyNoMoreInteractions(accountRepository, balanceValidator, exchangeRateService);
-    }
-
-    private ExchangeRequest prepareRequest(BigDecimal amount, CurrencyEnum currencyEnum) {
-        var request = new ExchangeRequest();
-        request.setAmount(amount);
-        request.setSourceCurrency(ExchangeRequest.SourceCurrencyEnum.fromValue(currencyEnum.name()));
-        return request;
+        // then
+        verifyCommonInteractions(amount, CurrencyEnum.PLN);
+        assertBalances(
+                BigDecimal.valueOf(900),  // 1000 PLN - 100 PLN
+                BigDecimal.valueOf(75)    // 50 USD + (100 PLN / 4 USD/PLN) = 50 + 25 = 75 USD
+        );
     }
 
     @Test
-    void shouldPerformExchangeFromUSDtoPLN() throws ServiceUnavailableException {
-        var accountId = UUID.randomUUID();
+    void shouldExchangeFromUSDtoPLN() throws ServiceUnavailableException {
+        // given
         var amount = BigDecimal.valueOf(10);
-        var account = prepareAccount(accountId);
-        var request = prepareRequest(amount, CurrencyEnum.USD);
+        var request = prepareExchangeRequest(amount, CurrencyEnum.USD);
 
-        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
-        when(exchangeRateService.getCurrentRate(CurrencyEnum.USD)).thenReturn(BigDecimal.valueOf(4));
-
+        // when
         sut.exchangeCurrency(accountId, request);
 
-        verify(balanceValidator).validateBalance(any(), any(), any());
-        verify(accountRepository).findById(accountId);
-        verify(exchangeRateService).getCurrentRate(CurrencyEnum.USD);
-        verify(accountRepository).save(accountCaptor.capture());
-        var capturedAccount = accountCaptor.getValue();
-        // AccountMapper is intentionally not verified
-        assertEquals(BigDecimal.valueOf(1040).setScale(2, RoundingMode.HALF_UP), capturedAccount.getPlnBalance().setScale(2, RoundingMode.HALF_UP));
-        assertEquals(BigDecimal.valueOf(40).setScale(2, RoundingMode.HALF_UP), capturedAccount.getUsdBalance().setScale(2, RoundingMode.HALF_UP));
-        verifyNoMoreInteractions(accountRepository, balanceValidator, exchangeRateService);
+        // then
+        verifyCommonInteractions(amount, CurrencyEnum.USD);
+        assertBalances(
+                BigDecimal.valueOf(1040), // 1000 PLN + (10 USD * 4 PLN/USD) = 1000 + 40 = 1040 PLN
+                BigDecimal.valueOf(40)    // 50 USD - 10 USD
+        );
     }
 
-    private Account prepareAccount(UUID accountId) {
+    private void setupCommonMocks() throws ServiceUnavailableException {
+        when(accountRepository.findById(accountId))
+                .thenReturn(Optional.of(prepareAccount()));
+        when(exchangeRateService.getCurrentRate(CurrencyEnum.USD))
+                .thenReturn(EXCHANGE_RATE);
+    }
+
+    private Account prepareAccount() {
         var account = new Account();
-        account.setPlnBalance(BigDecimal.valueOf(1000));
-        account.setUsdBalance(BigDecimal.valueOf(50));
         account.setId(accountId);
-        account.setFirstName("Jan");
-        account.setLastName("Kowalski");
+        account.setPlnBalance(INITIAL_PLN_BALANCE);
+        account.setUsdBalance(INITIAL_USD_BALANCE);
         return account;
     }
 
+    private ExchangeRequest prepareExchangeRequest(BigDecimal amount, CurrencyEnum currency) {
+        var request = new ExchangeRequest();
+        request.setAmount(amount);
+        request.setSourceCurrency(ExchangeRequest.SourceCurrencyEnum.fromValue(currency.name()));
+        return request;
+    }
+
+    private void verifyCommonInteractions(BigDecimal amount, CurrencyEnum currency) throws ServiceUnavailableException {
+        verify(balanceValidator).validateBalance(any(), eq(amount), eq(currency));
+        verify(accountRepository).findById(accountId);
+        verify(exchangeRateService).getCurrentRate(CurrencyEnum.USD);
+        verify(accountRepository).save(accountCaptor.capture());
+        verify(accountMapper, times(1)).toResponse(any());
+    }
+
+    private void assertBalances(BigDecimal expectedPln, BigDecimal expectedUsd) {
+        var capturedAccount = accountCaptor.getValue();
+        assertEquals(
+                expectedPln.setScale(2, RoundingMode.HALF_UP),
+                capturedAccount.getPlnBalance().setScale(2, RoundingMode.HALF_UP)
+        );
+        assertEquals(
+                expectedUsd.setScale(2, RoundingMode.HALF_UP),
+                capturedAccount.getUsdBalance().setScale(2, RoundingMode.HALF_UP)
+        );
+    }
 }

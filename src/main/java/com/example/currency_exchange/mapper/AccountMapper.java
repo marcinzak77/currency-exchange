@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 public class AccountMapper {
 
     public AccountResponse toResponse(Account account) {
-        AccountResponse response = new AccountResponse();
+        var response = new AccountResponse();
         response.setId(account.getId());
         response.setFirstName(account.getFirstName());
         response.setLastName(account.getLastName());

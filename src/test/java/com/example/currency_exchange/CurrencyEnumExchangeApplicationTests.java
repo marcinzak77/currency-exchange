@@ -128,8 +128,8 @@ class CurrencyEnumExchangeApplicationTests {
         setupMockNbpResponse();
 
         // when
-        BigDecimal firstCall = exchangeRateService.getCurrentRate(CurrencyEnum.USD);
-        BigDecimal secondCall = exchangeRateService.getCurrentRate(CurrencyEnum.USD);
+        var firstCall = exchangeRateService.getCurrentRate(CurrencyEnum.USD);
+        var secondCall = exchangeRateService.getCurrentRate(CurrencyEnum.USD);
 
         // then
         assertEquals(EXCHANGE_RATE, firstCall);
@@ -170,7 +170,7 @@ class CurrencyEnumExchangeApplicationTests {
     @Test
     void shouldReturnNotFoundForNonExistentAccount() {
         // given
-        UUID nonExistentId = UUID.randomUUID();
+        var nonExistentId = UUID.randomUUID();
 
         // when
         var response = testRestTemplate.getForEntity("/api/accounts/" + nonExistentId, ErrorResponse.class);

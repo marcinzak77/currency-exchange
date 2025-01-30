@@ -17,7 +17,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
-        ErrorResponse error = new ErrorResponse()
+        var error = new ErrorResponse()
                 .code("NOT_FOUND")
                 .message(ex.getMessage())
                 .details(Collections.emptyList());
@@ -26,7 +26,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InsufficientBalanceException.class)
     public ResponseEntity<ErrorResponse> handleValidation(InsufficientBalanceException ex) {
-        ErrorResponse error = new ErrorResponse()
+        var error = new ErrorResponse()
                 .code("VALIDATION_ERROR")
                 .message("Insufficient balance")
                 .details(Collections.singletonList(ex.getMessage()));
@@ -35,7 +35,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({RestClientException.class})
     public ResponseEntity<ErrorResponse> handleExternalService(RestClientException ex) {
-        ErrorResponse error = new ErrorResponse()
+        var error = new ErrorResponse()
                 .code("EXTERNAL_SERVICE_ERROR")
                 .message("Unable to fetch exchange rate")
                 .details(Collections.singletonList("External service is unavailable"));
@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ServiceUnavailableHttpException.class)
     public ResponseEntity<ErrorResponse> handleServiceUnavailable(ServiceUnavailableHttpException ex) {
-        ErrorResponse error = new ErrorResponse()
+        var error = new ErrorResponse()
                 .code("SERVICE_UNAVAILABLE")
                 .message("Unable to fetch exchange rate")
                 .details(List.of());
@@ -53,11 +53,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleServiceUnavailable(MethodArgumentNotValidException ex) {
-        List<String> errorMessages = ex.getBindingResult().getFieldErrors().stream()
+        var errorMessages = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + " " + error.getDefaultMessage())
                 .collect(Collectors.toList());
 
-        ErrorResponse error = new ErrorResponse()
+        var error = new ErrorResponse()
                 .code("VALIDATION_ERROR")
                 .message("Invalid request parameters")
                 .details(errorMessages);
