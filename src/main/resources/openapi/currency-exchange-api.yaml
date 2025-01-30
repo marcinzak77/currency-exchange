@@ -1,0 +1,177 @@
+openapi: 3.0.3
+info:
+  title: Currency Exchange API
+  description: API for managing currency exchange accounts and performing PLN<->USD exchanges
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local server
+paths:
+  /api/accounts:
+    post:
+      summary: Create new account
+      description: Creates a new account with initial PLN balance
+      operationId: createAccount
+      tags:
+        - accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '200':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/accounts/{accountId}:
+    get:
+      summary: Get account details
+      description: Retrieve account details including current balances
+      operationId: getAccount
+      tags:
+        - accounts
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Account details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/accounts/{accountId}/exchange:
+    post:
+      summary: Exchange currency
+      description: Exchange currency between PLN and USD
+      operationId: exchangeCurrency
+      tags:
+        - accounts
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExchangeRequest'
+      responses:
+        '200':
+          description: Currency exchanged successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Invalid exchange request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    CreateAccountRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - initialBalance
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: "Jan"
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: "Kowalski"
+        initialBalance:
+          type: number
+          minimum: 1
+          example: 1000.00
+
+    ExchangeRequest:
+      type: object
+      required:
+        - amount
+        - sourceCurrency
+      properties:
+        amount:
+          type: number
+          minimum: 1
+          example: 100.00
+        sourceCurrency:
+          type: string
+          enum: [PLN, USD]
+          example: "PLN"
+
+    AccountResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        firstName:
+          type: string
+          example: "Jan"
+        lastName:
+          type: string
+          example: "Kowalski"
+        plnBalance:
+          type: number
+          example: 1000.00
+        usdBalance:
+          type: number
+          example: 250.00
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          example: "Invalid request parameters"
+        details:
+          type: array
+          items:
+            type: string
+          example: ["Initial balance must be positive", "First name is required"]
